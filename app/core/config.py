@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     database_url: str = "mysql+pymysql://root@localhost:3306/aviacion"
     secret_key: str = "dev-secret-key-change-in-production"
     access_token_expire_minutes: int = 480
-    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173,https://aircraft-inspection-b7ecb.web.app"
     upload_dir: str = "uploads"
     max_upload_size_mb: int = 10
     allowed_image_extensions: str = "jpg,jpeg,png,webp,gif"
