@@ -8,6 +8,7 @@ from app.application.services.aircraft_model_service import AircraftModelService
 from app.application.services.photo_annotation_service import PhotoAnnotationService
 from app.application.services.auth_service import AuthService
 from app.application.services.inspection_service import InspectionService
+from app.application.services.inspection_report_service import InspectionReportService
 from app.core.exceptions import AuthenticationError
 from app.core.security import password_hasher, token_service
 from app.domain.tenant_context import TenantContext
@@ -84,6 +85,12 @@ def get_inspection_service(
     aircraft_model_repo: SqlAlchemyAircraftModelRepository = Depends(get_aircraft_model_repository),
 ) -> InspectionService:
     return InspectionService(inspection_repo, aircraft_model_repo)
+
+
+def get_inspection_report_service(
+    inspection_service: InspectionService = Depends(get_inspection_service),
+) -> InspectionReportService:
+    return InspectionReportService(inspection_service)
 
 
 def get_current_user(

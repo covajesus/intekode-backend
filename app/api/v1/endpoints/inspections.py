@@ -1,8 +1,15 @@
 """Inspection endpoints — thin controller layer delegating to InspectionService."""
 
-from fastapi import APIRouter, Depends, status
+from io import BytesIO
 
-from app.api.dependencies import get_inspection_service, get_tenant_context
+from fastapi import APIRouter, Depends, status
+from fastapi.responses import StreamingResponse
+
+from app.api.dependencies import (
+    get_inspection_report_service,
+    get_inspection_service,
+    get_tenant_context,
+)
 from app.application.dto.inspection import (
     InspectionCreateDTO,
     InspectionResponseDTO,
@@ -10,6 +17,7 @@ from app.application.dto.inspection import (
     InspectionTemplateDTO,
     InspectionUpdateDTO,
 )
+from app.application.services.inspection_report_service import InspectionReportService
 from app.application.services.inspection_service import InspectionService
 from app.domain.tenant_context import TenantContext
 
@@ -47,6 +55,27 @@ def create_inspection(
         payload,
         created_by=tenant.user.id,
         organization_id=tenant.organization_id,
+    )
+
+
+@router.get(
+    "/{inspection_id}/pdf",
+    summary="Download inspection PDF report",
+    response_class=StreamingResponse,
+)
+def download_inspection_pdf(
+    inspection_id: int,
+    tenant: TenantContext = Depends(get_tenant_context),
+    report_service: InspectionReportService = Depends(get_inspection_report_service),
+) -> StreamingResponse:
+    pdf_bytes, filename = report_service.build_pdf(tenant.organization_id, inspection_id)
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+    }
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers=headers,
     )
 
 
