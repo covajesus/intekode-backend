@@ -1,6 +1,7 @@
 """Inspection 3D model annotation endpoints — mark findings on the aircraft GLB."""
 
 from fastapi import APIRouter, Depends, status
+from fastapi.responses import FileResponse
 
 from app.api.dependencies import get_model3d_annotation_service, get_tenant_context
 from app.application.dto.model3d_annotation import (
@@ -29,6 +30,25 @@ def get_model3d_with_annotations(
     service: Model3DAnnotationService = Depends(get_model3d_annotation_service),
 ) -> Model3DWithAnnotationsDTO:
     return service.get_model_with_annotations(tenant.organization_id, inspection_id)
+
+
+@router.get(
+    "/file",
+    summary="Download aircraft GLB for inspection viewer",
+    response_class=FileResponse,
+)
+def download_model3d_file(
+    inspection_id: int,
+    tenant: TenantContext = Depends(get_tenant_context),
+    service: Model3DAnnotationService = Depends(get_model3d_annotation_service),
+) -> FileResponse:
+    path, filename = service.get_glb_file_path(tenant.organization_id, inspection_id)
+    return FileResponse(
+        path,
+        media_type="model/gltf-binary",
+        filename=filename,
+        headers={"Cache-Control": "private, max-age=300"},
+    )
 
 
 @router.post(

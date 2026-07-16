@@ -101,5 +101,8 @@ class FileStorageService:
     def build_public_url(relative_path: str) -> str:
         return f"/uploads/{relative_path.replace(chr(92), '/')}"
 
+    def resolve_absolute_path(self, relative_path: str) -> Path:
+        return self._base_dir / relative_path
+
 
 file_storage_service = FileStorageService()

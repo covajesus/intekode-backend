@@ -88,6 +88,23 @@ class Model3DAnnotationService:
         self._annotations.delete(annotation)
         self._annotations.commit()
 
+    def get_glb_file_path(
+        self,
+        organization_id: int,
+        inspection_id: int,
+    ) -> tuple[str, str]:
+        """Return (absolute_path, download_filename) for the inspection model GLB."""
+        _, model = self._resolve_inspection_model(organization_id, inspection_id)
+        if not model.glb_file_path:
+            raise NotFoundError("Modelo 3D (GLB)", inspection_id)
+
+        absolute = self._storage.resolve_absolute_path(model.glb_file_path)
+        if not absolute.exists() or not absolute.is_file():
+            raise NotFoundError("Archivo GLB", inspection_id)
+
+        filename = model.glb_original_name or model.glb_file_name or "model.glb"
+        return str(absolute), filename
+
     def _get_inspection_or_raise(self, organization_id: int, inspection_id: int):
         inspection = self._inspections.get_by_id(organization_id, inspection_id)
         if not inspection:

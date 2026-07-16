@@ -35,6 +35,10 @@ def migrate() -> None:
                         x DOUBLE NOT NULL,
                         y DOUBLE NOT NULL,
                         z DOUBLE NOT NULL,
+                        x2 DOUBLE NULL,
+                        y2 DOUBLE NULL,
+                        z2 DOUBLE NULL,
+                        annotation_type VARCHAR(20) NOT NULL DEFAULT 'line',
                         color VARCHAR(20) NOT NULL DEFAULT '#E53935',
                         section_label VARCHAR(120) NULL,
                         title VARCHAR(200) NOT NULL,
@@ -51,6 +55,20 @@ def migrate() -> None:
                     """
                 )
             )
+        else:
+            if not _column_exists("model3d_annotations", "x2"):
+                conn.execute(text("ALTER TABLE model3d_annotations ADD COLUMN x2 DOUBLE NULL"))
+            if not _column_exists("model3d_annotations", "y2"):
+                conn.execute(text("ALTER TABLE model3d_annotations ADD COLUMN y2 DOUBLE NULL"))
+            if not _column_exists("model3d_annotations", "z2"):
+                conn.execute(text("ALTER TABLE model3d_annotations ADD COLUMN z2 DOUBLE NULL"))
+            if not _column_exists("model3d_annotations", "annotation_type"):
+                conn.execute(
+                    text(
+                        "ALTER TABLE model3d_annotations "
+                        "ADD COLUMN annotation_type VARCHAR(20) NOT NULL DEFAULT 'line'"
+                    )
+                )
 
     print("Migración GLB / model3d_annotations aplicada correctamente.")
 
