@@ -6,6 +6,19 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 AnnotationType3D = Literal["point", "line"]
 
 
+class Model3DAnnotationPhotoResponseDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    annotation_id: int
+    file_name: str
+    file_path: str
+    original_name: str | None
+    sort_order: int
+    created_at: datetime
+    url: str | None = None
+
+
 class Model3DAnnotationCreateDTO(BaseModel):
     annotation_type: AnnotationType3D = "line"
     x: float
@@ -14,7 +27,7 @@ class Model3DAnnotationCreateDTO(BaseModel):
     x2: float | None = None
     y2: float | None = None
     z2: float | None = None
-    color: str = Field(default="#000000", max_length=20)
+    color: str = Field(default="#E53935", max_length=20)
     section_label: str | None = Field(default=None, max_length=120)
     title: str = Field(min_length=1, max_length=200)
     notes: str | None = None
@@ -64,6 +77,7 @@ class Model3DAnnotationResponseDTO(BaseModel):
     notes: str | None
     created_at: datetime
     updated_at: datetime
+    photos: list[Model3DAnnotationPhotoResponseDTO] = Field(default_factory=list)
 
 
 class Model3DWithAnnotationsDTO(BaseModel):

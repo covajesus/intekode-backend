@@ -131,7 +131,7 @@ class Model3DAnnotation(Base):
     y2: Mapped[float | None] = mapped_column(Float, nullable=True)
     z2: Mapped[float | None] = mapped_column(Float, nullable=True)
     annotation_type: Mapped[str] = mapped_column(String(20), default="line", nullable=False)
-    color: Mapped[str] = mapped_column(String(20), default="#000000", nullable=False)
+    color: Mapped[str] = mapped_column(String(20), default="#E53935", nullable=False)
     section_label: Mapped[str | None] = mapped_column(String(120))
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
@@ -141,3 +141,28 @@ class Model3DAnnotation(Base):
     )
 
     aircraft_model: Mapped["AircraftModel"] = relationship(back_populates="model3d_annotations")
+    photos: Mapped[list["Model3DAnnotationPhoto"]] = relationship(
+        back_populates="annotation",
+        cascade="all, delete-orphan",
+        order_by="Model3DAnnotationPhoto.sort_order",
+    )
+
+
+class Model3DAnnotationPhoto(Base):
+    """Evidence photos attached to a 3D finding."""
+
+    __tablename__ = "model3d_annotation_photos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    annotation_id: Mapped[int] = mapped_column(
+        ForeignKey("model3d_annotations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    original_name: Mapped[str | None] = mapped_column(String(255))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    annotation: Mapped["Model3DAnnotation"] = relationship(back_populates="photos")

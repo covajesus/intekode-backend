@@ -1,6 +1,6 @@
 """Inspection 3D model annotation endpoints — mark findings on the aircraft GLB."""
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, UploadFile, status
 from fastapi.responses import FileResponse
 
 from app.api.dependencies import get_model3d_annotation_service, get_tenant_context
@@ -98,3 +98,43 @@ def delete_model3d_annotation(
     service: Model3DAnnotationService = Depends(get_model3d_annotation_service),
 ) -> None:
     service.delete_annotation(tenant.organization_id, inspection_id, annotation_id)
+
+
+@router.post(
+    "/annotations/{annotation_id}/photos",
+    response_model=Model3DAnnotationResponseDTO,
+    summary="Upload evidence photos for a 3D finding",
+)
+async def upload_model3d_annotation_photos(
+    inspection_id: int,
+    annotation_id: int,
+    files: list[UploadFile] = File(...),
+    tenant: TenantContext = Depends(get_tenant_context),
+    service: Model3DAnnotationService = Depends(get_model3d_annotation_service),
+) -> Model3DAnnotationResponseDTO:
+    return await service.upload_photos(
+        tenant.organization_id,
+        inspection_id,
+        annotation_id,
+        files,
+    )
+
+
+@router.delete(
+    "/annotations/{annotation_id}/photos/{photo_id}",
+    response_model=Model3DAnnotationResponseDTO,
+    summary="Delete evidence photo from a 3D finding",
+)
+def delete_model3d_annotation_photo(
+    inspection_id: int,
+    annotation_id: int,
+    photo_id: int,
+    tenant: TenantContext = Depends(get_tenant_context),
+    service: Model3DAnnotationService = Depends(get_model3d_annotation_service),
+) -> Model3DAnnotationResponseDTO:
+    return service.delete_photo(
+        tenant.organization_id,
+        inspection_id,
+        annotation_id,
+        photo_id,
+    )

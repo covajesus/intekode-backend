@@ -70,6 +70,27 @@ def migrate() -> None:
                     )
                 )
 
+        if not _table_exists("model3d_annotation_photos"):
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE model3d_annotation_photos (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        annotation_id INT NOT NULL,
+                        file_name VARCHAR(255) NOT NULL,
+                        file_path VARCHAR(500) NOT NULL,
+                        original_name VARCHAR(255) NULL,
+                        sort_order INT NOT NULL DEFAULT 0,
+                        created_at DATETIME NULL,
+                        INDEX ix_model3d_annotation_photos_annotation_id (annotation_id),
+                        CONSTRAINT fk_model3d_annotation_photos_annotation
+                            FOREIGN KEY (annotation_id) REFERENCES model3d_annotations(id)
+                            ON DELETE CASCADE
+                    )
+                    """
+                )
+            )
+
     print("Migración GLB / model3d_annotations aplicada correctamente.")
 
 

@@ -87,6 +87,30 @@ class FileStorageService:
         relative_path = f"{self.AIRCRAFT_MODELS_DIR}/{model_id}/{unique_name}"
         return unique_name, relative_path
 
+    def save_model3d_annotation_photo(
+        self,
+        *,
+        inspection_id: int,
+        annotation_id: int,
+        file: UploadFile,
+    ) -> tuple[str, str]:
+        self.ensure_base_dirs()
+        extension = self._validate_image(file)
+        unique_name = f"{uuid.uuid4().hex}.{extension}"
+        target_dir = (
+            self._base_dir
+            / "inspections"
+            / str(inspection_id)
+            / "model3d"
+            / str(annotation_id)
+        )
+        target_dir.mkdir(parents=True, exist_ok=True)
+        absolute_path = target_dir / unique_name
+        with absolute_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        relative_path = f"inspections/{inspection_id}/model3d/{annotation_id}/{unique_name}"
+        return unique_name, relative_path
+
     def delete_file(self, relative_path: str) -> None:
         absolute_path = self._base_dir / relative_path
         if absolute_path.exists() and absolute_path.is_file():

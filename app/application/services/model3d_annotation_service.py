@@ -1,5 +1,7 @@
 """3D model annotation service — pin findings on the aircraft GLB during inspections."""
 
+from fastapi import UploadFile
+
 from app.application.dto.model3d_annotation import (
     Model3DAnnotationCreateDTO,
     Model3DAnnotationResponseDTO,
@@ -13,8 +15,13 @@ from app.domain.interfaces.repositories import (
     IInspectionRepository,
     IModel3DAnnotationRepository,
 )
-from app.infrastructure.persistence.models.aircraft_model import Model3DAnnotation
+from app.infrastructure.persistence.models.aircraft_model import (
+    Model3DAnnotation,
+    Model3DAnnotationPhoto,
+)
 from app.infrastructure.storage.file_storage_service import FileStorageService, file_storage_service
+
+MAX_FINDING_PHOTOS = 10
 
 
 class Model3DAnnotationService:
@@ -59,8 +66,8 @@ class Model3DAnnotationService:
         annotation = Model3DAnnotationMapper.to_entity(inspection.id, model.id, payload)
         self._annotations.create(annotation)
         self._annotations.commit()
-        self._annotations.refresh(annotation)
-        return Model3DAnnotationMapper.to_response_dto(annotation)
+        refreshed = self._get_annotation_or_raise(inspection_id, annotation.id)
+        return Model3DAnnotationMapper.to_response_dto(refreshed, self._storage)
 
     def update_annotation(
         self,
@@ -74,8 +81,8 @@ class Model3DAnnotationService:
         for key, value in payload.model_dump(exclude_unset=True).items():
             setattr(annotation, key, value)
         self._annotations.commit()
-        self._annotations.refresh(annotation)
-        return Model3DAnnotationMapper.to_response_dto(annotation)
+        refreshed = self._get_annotation_or_raise(inspection_id, annotation_id)
+        return Model3DAnnotationMapper.to_response_dto(refreshed, self._storage)
 
     def delete_annotation(
         self,
@@ -85,15 +92,73 @@ class Model3DAnnotationService:
     ) -> None:
         self._resolve_inspection_model(organization_id, inspection_id)
         annotation = self._get_annotation_or_raise(inspection_id, annotation_id)
+        for photo in list(annotation.photos or []):
+            self._storage.delete_file(photo.file_path)
         self._annotations.delete(annotation)
         self._annotations.commit()
+
+    async def upload_photos(
+        self,
+        organization_id: int,
+        inspection_id: int,
+        annotation_id: int,
+        files: list[UploadFile],
+    ) -> Model3DAnnotationResponseDTO:
+        self._resolve_inspection_model(organization_id, inspection_id)
+        annotation = self._get_annotation_or_raise(inspection_id, annotation_id)
+        if not files:
+            raise ApplicationError("Debe enviar al menos una imagen")
+
+        current_count = len(annotation.photos or [])
+        if current_count + len(files) > MAX_FINDING_PHOTOS:
+            raise ApplicationError(
+                f"Máximo {MAX_FINDING_PHOTOS} fotos por incidencia",
+                code="VALIDATION_ERROR",
+            )
+
+        next_sort = max((photo.sort_order for photo in annotation.photos or []), default=-1) + 1
+        for index, file in enumerate(files):
+            file_name, file_path = self._storage.save_model3d_annotation_photo(
+                inspection_id=inspection_id,
+                annotation_id=annotation_id,
+                file=file,
+            )
+            photo = Model3DAnnotationPhoto(
+                annotation_id=annotation_id,
+                file_name=file_name,
+                file_path=file_path,
+                original_name=file.filename,
+                sort_order=next_sort + index,
+            )
+            self._annotations.add_photo(photo)
+
+        self._annotations.commit()
+        refreshed = self._get_annotation_or_raise(inspection_id, annotation_id)
+        return Model3DAnnotationMapper.to_response_dto(refreshed, self._storage)
+
+    def delete_photo(
+        self,
+        organization_id: int,
+        inspection_id: int,
+        annotation_id: int,
+        photo_id: int,
+    ) -> Model3DAnnotationResponseDTO:
+        self._resolve_inspection_model(organization_id, inspection_id)
+        self._get_annotation_or_raise(inspection_id, annotation_id)
+        photo = self._annotations.get_photo(annotation_id, photo_id)
+        if not photo:
+            raise NotFoundError("Foto de incidencia", photo_id)
+        self._storage.delete_file(photo.file_path)
+        self._annotations.delete_photo(photo)
+        self._annotations.commit()
+        refreshed = self._get_annotation_or_raise(inspection_id, annotation_id)
+        return Model3DAnnotationMapper.to_response_dto(refreshed, self._storage)
 
     def get_glb_file_path(
         self,
         organization_id: int,
         inspection_id: int,
     ) -> tuple[str, str]:
-        """Return (absolute_path, download_filename) for the inspection model GLB."""
         _, model = self._resolve_inspection_model(organization_id, inspection_id)
         if not model.glb_file_path:
             raise NotFoundError("Modelo 3D (GLB)", inspection_id)
