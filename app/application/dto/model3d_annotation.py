@@ -14,7 +14,7 @@ class Model3DAnnotationCreateDTO(BaseModel):
     x2: float | None = None
     y2: float | None = None
     z2: float | None = None
-    color: str = Field(default="#E53935", max_length=20)
+    color: str = Field(default="#000000", max_length=20)
     section_label: str | None = Field(default=None, max_length=120)
     title: str = Field(min_length=1, max_length=200)
     notes: str | None = None

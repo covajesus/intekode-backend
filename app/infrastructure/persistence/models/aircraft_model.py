@@ -131,7 +131,7 @@ class Model3DAnnotation(Base):
     y2: Mapped[float | None] = mapped_column(Float, nullable=True)
     z2: Mapped[float | None] = mapped_column(Float, nullable=True)
     annotation_type: Mapped[str] = mapped_column(String(20), default="line", nullable=False)
-    color: Mapped[str] = mapped_column(String(20), default="#E53935", nullable=False)
+    color: Mapped[str] = mapped_column(String(20), default="#000000", nullable=False)
     section_label: Mapped[str | None] = mapped_column(String(120))
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
