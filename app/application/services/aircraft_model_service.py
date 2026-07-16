@@ -175,6 +175,44 @@ class AircraftModelService:
         self._repository.commit()
         return self._to_response(self._get_or_raise(organization_id, model_id))
 
+    async def upload_glb(
+        self,
+        organization_id: int,
+        model_id: int,
+        file: UploadFile,
+    ) -> AircraftModelResponseDTO:
+        model = self._get_or_raise(organization_id, model_id)
+        if model.glb_file_path:
+            self._storage.delete_file(model.glb_file_path)
+
+        file_name, file_path = self._storage.save_aircraft_model_glb(
+            model_id=model_id,
+            file=file,
+        )
+        model.glb_file_name = file_name
+        model.glb_file_path = file_path
+        model.glb_original_name = file.filename
+        self._repository.commit()
+        self._repository.refresh(model)
+        return self._to_response(model)
+
+    def delete_glb(
+        self,
+        organization_id: int,
+        model_id: int,
+    ) -> AircraftModelResponseDTO:
+        model = self._get_or_raise(organization_id, model_id)
+        if not model.glb_file_path:
+            raise NotFoundError("Modelo 3D (GLB)", model_id)
+
+        self._storage.delete_file(model.glb_file_path)
+        model.glb_file_name = None
+        model.glb_file_path = None
+        model.glb_original_name = None
+        self._repository.commit()
+        self._repository.refresh(model)
+        return self._to_response(model)
+
     def _get_or_raise(self, organization_id: int, model_id: int) -> AircraftModel:
         model = self._repository.get_by_id(organization_id, model_id)
         if not model:
@@ -196,6 +234,7 @@ class AircraftModelService:
             applicable_sections=list(getattr(model, "applicable_sections", None) or DEFAULT_SECTIONS),
             photo_count=len(model.photos),
             primary_photo_url=self._storage.build_public_url(primary.file_path) if primary else None,
+            has_glb=bool(model.glb_file_path),
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
@@ -216,6 +255,9 @@ class AircraftModelService:
             )
             for photo in model.photos
         ]
+        glb_url = (
+            self._storage.build_public_url(model.glb_file_path) if model.glb_file_path else None
+        )
         return AircraftModelResponseDTO(
             id=model.id,
             manufacturer=model.manufacturer,
@@ -228,4 +270,7 @@ class AircraftModelService:
             created_at=model.created_at,
             updated_at=model.updated_at,
             photos=photos,
+            glb_file_name=model.glb_file_name,
+            glb_original_name=model.glb_original_name,
+            glb_url=glb_url,
         )

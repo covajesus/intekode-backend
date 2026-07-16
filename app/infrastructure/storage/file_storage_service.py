@@ -50,6 +50,43 @@ class FileStorageService:
         relative_path = f"{self.AIRCRAFT_MODELS_DIR}/{model_id}/{unique_name}"
         return unique_name, relative_path
 
+    def _validate_glb(self, file: UploadFile) -> str:
+        if not file.filename:
+            raise ApplicationError("El archivo no tiene nombre")
+
+        extension = file.filename.rsplit(".", 1)[-1].lower()
+        if extension not in settings.allowed_model3d_extensions_list:
+            raise ApplicationError(
+                f"Formato 3D no permitido. Use: {', '.join(settings.allowed_model3d_extensions_list)}"
+            )
+        return extension
+
+    def save_aircraft_model_glb(
+        self,
+        *,
+        model_id: int,
+        file: UploadFile,
+    ) -> tuple[str, str]:
+        self.ensure_base_dirs()
+        extension = self._validate_glb(file)
+        unique_name = f"model.{extension}"
+        model_dir = self._base_dir / self.AIRCRAFT_MODELS_DIR / str(model_id)
+        model_dir.mkdir(parents=True, exist_ok=True)
+
+        absolute_path = model_dir / unique_name
+        with absolute_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        max_bytes = settings.max_glb_upload_size_mb * 1024 * 1024
+        if absolute_path.stat().st_size > max_bytes:
+            absolute_path.unlink(missing_ok=True)
+            raise ApplicationError(
+                f"El modelo 3D supera el tamaño máximo de {settings.max_glb_upload_size_mb} MB"
+            )
+
+        relative_path = f"{self.AIRCRAFT_MODELS_DIR}/{model_id}/{unique_name}"
+        return unique_name, relative_path
+
     def delete_file(self, relative_path: str) -> None:
         absolute_path = self._base_dir / relative_path
         if absolute_path.exists() and absolute_path.is_file():

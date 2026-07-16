@@ -113,3 +113,30 @@ def set_primary_aircraft_model_photo(
     service: AircraftModelService = Depends(get_aircraft_model_service),
 ) -> AircraftModelResponseDTO:
     return service.set_primary_photo(tenant.organization_id, model_id, photo_id)
+
+
+@router.post(
+    "/{model_id}/glb",
+    response_model=AircraftModelResponseDTO,
+    summary="Upload or replace aircraft model GLB",
+)
+async def upload_aircraft_model_glb(
+    model_id: int,
+    file: UploadFile = File(...),
+    tenant: TenantContext = Depends(get_tenant_context),
+    service: AircraftModelService = Depends(get_aircraft_model_service),
+) -> AircraftModelResponseDTO:
+    return await service.upload_glb(tenant.organization_id, model_id, file)
+
+
+@router.delete(
+    "/{model_id}/glb",
+    response_model=AircraftModelResponseDTO,
+    summary="Delete aircraft model GLB",
+)
+def delete_aircraft_model_glb(
+    model_id: int,
+    tenant: TenantContext = Depends(get_tenant_context),
+    service: AircraftModelService = Depends(get_aircraft_model_service),
+) -> AircraftModelResponseDTO:
+    return service.delete_glb(tenant.organization_id, model_id)

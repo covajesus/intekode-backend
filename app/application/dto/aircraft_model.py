@@ -60,6 +60,7 @@ class AircraftModelSummaryDTO(BaseModel):
     applicable_sections: list[str] = Field(default_factory=list)
     photo_count: int = 0
     primary_photo_url: str | None = None
+    has_glb: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -71,3 +72,6 @@ class AircraftModelResponseDTO(AircraftModelBaseDTO):
     created_at: datetime
     updated_at: datetime
     photos: list[AircraftModelPhotoResponseDTO] = Field(default_factory=list)
+    glb_file_name: str | None = None
+    glb_original_name: str | None = None
+    glb_url: str | None = None

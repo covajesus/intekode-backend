@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.application.services.aircraft_model_service import AircraftModelService
 from app.application.services.photo_annotation_service import PhotoAnnotationService
+from app.application.services.model3d_annotation_service import Model3DAnnotationService
 from app.application.services.auth_service import AuthService
 from app.application.services.inspection_service import InspectionService
 from app.application.services.inspection_report_service import InspectionReportService
@@ -25,6 +26,9 @@ from app.infrastructure.persistence.repositories.organization_repository import 
 )
 from app.infrastructure.persistence.repositories.photo_annotation_repository import (
     SqlAlchemyPhotoAnnotationRepository,
+)
+from app.infrastructure.persistence.repositories.model3d_annotation_repository import (
+    SqlAlchemyModel3DAnnotationRepository,
 )
 from app.infrastructure.persistence.repositories.user_repository import SqlAlchemyUserRepository
 
@@ -72,6 +76,22 @@ def get_photo_annotation_service(
     annotation_repo: SqlAlchemyPhotoAnnotationRepository = Depends(get_photo_annotation_repository),
 ) -> PhotoAnnotationService:
     return PhotoAnnotationService(inspection_repo, aircraft_model_repo, annotation_repo)
+
+
+def get_model3d_annotation_repository(
+    session: Session = Depends(get_db_session),
+) -> SqlAlchemyModel3DAnnotationRepository:
+    return SqlAlchemyModel3DAnnotationRepository(session)
+
+
+def get_model3d_annotation_service(
+    inspection_repo: SqlAlchemyInspectionRepository = Depends(get_inspection_repository),
+    aircraft_model_repo: SqlAlchemyAircraftModelRepository = Depends(get_aircraft_model_repository),
+    annotation_repo: SqlAlchemyModel3DAnnotationRepository = Depends(
+        get_model3d_annotation_repository
+    ),
+) -> Model3DAnnotationService:
+    return Model3DAnnotationService(inspection_repo, aircraft_model_repo, annotation_repo)
 
 
 def get_aircraft_model_service(

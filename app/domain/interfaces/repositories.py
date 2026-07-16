@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from app.infrastructure.persistence.models.aircraft_model import (
     AircraftModel,
     AircraftModelPhoto,
+    Model3DAnnotation,
     PhotoAnnotation,
 )
 from app.infrastructure.persistence.models.inspection import Inspection
@@ -127,3 +128,23 @@ class IPhotoAnnotationRepository(ABC):
 
     @abstractmethod
     def refresh(self, entity: PhotoAnnotation) -> PhotoAnnotation: ...
+
+
+class IModel3DAnnotationRepository(ABC):
+    @abstractmethod
+    def list_by_inspection(self, inspection_id: int) -> list[Model3DAnnotation]: ...
+
+    @abstractmethod
+    def get_by_id(self, inspection_id: int, annotation_id: int) -> Model3DAnnotation | None: ...
+
+    @abstractmethod
+    def create(self, annotation: Model3DAnnotation) -> Model3DAnnotation: ...
+
+    @abstractmethod
+    def delete(self, annotation: Model3DAnnotation) -> None: ...
+
+    @abstractmethod
+    def commit(self) -> None: ...
+
+    @abstractmethod
+    def refresh(self, entity: Model3DAnnotation) -> Model3DAnnotation: ...

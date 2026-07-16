@@ -24,7 +24,9 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173,https://aircraft-inspection-b7ecb.web.app"
     upload_dir: str = "uploads"
     max_upload_size_mb: int = 10
+    max_glb_upload_size_mb: int = 100
     allowed_image_extensions: str = "jpg,jpeg,png,webp,gif"
+    allowed_model3d_extensions: str = "glb"
 
     @property
     def cors_origins_list(self) -> list[str]:
@@ -33,6 +35,12 @@ class Settings(BaseSettings):
     @property
     def allowed_image_extensions_list(self) -> list[str]:
         return [ext.strip().lower() for ext in self.allowed_image_extensions.split(",") if ext.strip()]
+
+    @property
+    def allowed_model3d_extensions_list(self) -> list[str]:
+        return [
+            ext.strip().lower() for ext in self.allowed_model3d_extensions.split(",") if ext.strip()
+        ]
 
 
 settings = Settings()

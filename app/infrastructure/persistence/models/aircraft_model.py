@@ -63,6 +63,9 @@ class AircraftModel(Base):
         nullable=False,
         default=lambda: list(DEFAULT_SECTIONS),
     )
+    glb_file_name: Mapped[str | None] = mapped_column(String(255))
+    glb_file_path: Mapped[str | None] = mapped_column(String(500))
+    glb_original_name: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
@@ -72,6 +75,11 @@ class AircraftModel(Base):
         back_populates="aircraft_model",
         cascade="all, delete-orphan",
         order_by="AircraftModelPhoto.sort_order",
+    )
+    model3d_annotations: Mapped[list["Model3DAnnotation"]] = relationship(
+        back_populates="aircraft_model",
+        cascade="all, delete-orphan",
+        order_by="Model3DAnnotation.id",
     )
 
 
@@ -98,3 +106,34 @@ class AircraftModelPhoto(Base):
         cascade="all, delete-orphan",
         order_by="PhotoAnnotation.id",
     )
+
+
+class Model3DAnnotation(Base):
+    """Inspection finding pinned on the shared aircraft-model GLB mesh."""
+
+    __tablename__ = "model3d_annotations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    inspection_id: Mapped[int] = mapped_column(
+        ForeignKey("inspections.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    aircraft_model_id: Mapped[int] = mapped_column(
+        ForeignKey("aircraft_models.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    x: Mapped[float] = mapped_column(Float, nullable=False)
+    y: Mapped[float] = mapped_column(Float, nullable=False)
+    z: Mapped[float] = mapped_column(Float, nullable=False)
+    color: Mapped[str] = mapped_column(String(20), default="#E53935", nullable=False)
+    section_label: Mapped[str | None] = mapped_column(String(120))
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    aircraft_model: Mapped["AircraftModel"] = relationship(back_populates="model3d_annotations")
