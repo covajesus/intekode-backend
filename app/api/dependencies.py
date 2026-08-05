@@ -5,11 +5,13 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from app.application.services.aircraft_model_service import AircraftModelService
+from app.application.services.comment_template_service import CommentTemplateService
 from app.application.services.photo_annotation_service import PhotoAnnotationService
 from app.application.services.model3d_annotation_service import Model3DAnnotationService
 from app.application.services.auth_service import AuthService
 from app.application.services.inspection_service import InspectionService
 from app.application.services.inspection_report_service import InspectionReportService
+from app.application.services.public_inspection_service import PublicInspectionService
 from app.core.exceptions import AuthenticationError
 from app.core.security import password_hasher, token_service
 from app.domain.tenant_context import TenantContext
@@ -17,6 +19,9 @@ from app.infrastructure.database.session import get_db_session
 from app.infrastructure.persistence.models.user import User
 from app.infrastructure.persistence.repositories.aircraft_model_repository import (
     SqlAlchemyAircraftModelRepository,
+)
+from app.infrastructure.persistence.repositories.comment_template_repository import (
+    SqlAlchemyCommentTemplateRepository,
 )
 from app.infrastructure.persistence.repositories.inspection_repository import (
     SqlAlchemyInspectionRepository,
@@ -62,6 +67,20 @@ def get_aircraft_model_repository(
     session: Session = Depends(get_db_session),
 ) -> SqlAlchemyAircraftModelRepository:
     return SqlAlchemyAircraftModelRepository(session)
+
+
+def get_comment_template_repository(
+    session: Session = Depends(get_db_session),
+) -> SqlAlchemyCommentTemplateRepository:
+    return SqlAlchemyCommentTemplateRepository(session)
+
+
+def get_comment_template_service(
+    repository: SqlAlchemyCommentTemplateRepository = Depends(
+        get_comment_template_repository
+    ),
+) -> CommentTemplateService:
+    return CommentTemplateService(repository)
 
 
 def get_photo_annotation_repository(
@@ -111,6 +130,16 @@ def get_inspection_report_service(
     inspection_service: InspectionService = Depends(get_inspection_service),
 ) -> InspectionReportService:
     return InspectionReportService(inspection_service)
+
+
+def get_public_inspection_service(
+    inspection_repo: SqlAlchemyInspectionRepository = Depends(get_inspection_repository),
+    aircraft_model_repo: SqlAlchemyAircraftModelRepository = Depends(get_aircraft_model_repository),
+    annotation_repo: SqlAlchemyModel3DAnnotationRepository = Depends(
+        get_model3d_annotation_repository
+    ),
+) -> PublicInspectionService:
+    return PublicInspectionService(inspection_repo, aircraft_model_repo, annotation_repo)
 
 
 def get_current_user(

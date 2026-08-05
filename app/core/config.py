@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     secret_key: str = "dev-secret-key-change-in-production"
     access_token_expire_minutes: int = 480
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173,https://aircraft-inspection-b7ecb.web.app"
+    public_app_url: str = "https://aircraft-inspection-b7ecb.web.app"
     upload_dir: str = "uploads"
     max_upload_size_mb: int = 10
     max_glb_upload_size_mb: int = 100

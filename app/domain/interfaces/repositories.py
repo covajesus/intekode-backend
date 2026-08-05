@@ -8,6 +8,7 @@ from app.infrastructure.persistence.models.aircraft_model import (
     Model3DAnnotation,
     PhotoAnnotation,
 )
+from app.infrastructure.persistence.models.comment_template import CommentTemplate
 from app.infrastructure.persistence.models.inspection import Inspection
 from app.infrastructure.persistence.models.organization import Organization, OrganizationMember
 from app.infrastructure.persistence.models.user import User
@@ -64,6 +65,9 @@ class IInspectionRepository(ABC):
     def get_by_id(self, organization_id: int, inspection_id: int) -> Inspection | None: ...
 
     @abstractmethod
+    def get_by_public_share_token(self, token: str) -> Inspection | None: ...
+
+    @abstractmethod
     def create(self, inspection: Inspection) -> Inspection: ...
 
     @abstractmethod
@@ -106,6 +110,30 @@ class IAircraftModelRepository(ABC):
 
     @abstractmethod
     def refresh(self, entity): ...
+
+
+class ICommentTemplateRepository(ABC):
+    @abstractmethod
+    def list_by_organization(self, organization_id: int) -> list[CommentTemplate]: ...
+
+    @abstractmethod
+    def get_by_id(
+        self,
+        organization_id: int,
+        template_id: int,
+    ) -> CommentTemplate | None: ...
+
+    @abstractmethod
+    def create(self, template: CommentTemplate) -> CommentTemplate: ...
+
+    @abstractmethod
+    def delete(self, template: CommentTemplate) -> None: ...
+
+    @abstractmethod
+    def commit(self) -> None: ...
+
+    @abstractmethod
+    def refresh(self, entity: CommentTemplate) -> CommentTemplate: ...
 
 
 class IPhotoAnnotationRepository(ABC):

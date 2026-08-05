@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import math
 from collections import defaultdict
 from datetime import datetime
 from io import BytesIO
 from typing import Any
 
+from reportlab.graphics.barcode import qr
+from reportlab.graphics.shapes import Drawing
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4
@@ -15,6 +18,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import (
     HRFlowable,
+    Flowable,
     KeepTogether,
     Paragraph,
     SimpleDocTemplate,
@@ -24,6 +28,7 @@ from reportlab.platypus import (
 )
 
 from app.application.services.inspection_service import InspectionService
+from app.core.config import settings
 from app.infrastructure.persistence.models.inspection import Inspection
 
 BRAND_NAVY = colors.HexColor("#0D3D5C")
@@ -32,7 +37,53 @@ BRAND_LIGHT = colors.HexColor("#E8F4FB")
 LIGHT_GRAY = colors.HexColor("#F3F6F9")
 BORDER_GRAY = colors.HexColor("#D0D7DE")
 MUTED = colors.HexColor("#5B6B7C")
+STATUS_YES_GREEN = colors.HexColor("#2E7D32")
+STATUS_NO_RED = colors.HexColor("#C62828")
 WHITE = colors.white
+STAR_GOLD = colors.HexColor("#F5A623")
+
+SECTION_RATING_STARS = {
+    "Poor": 1,
+    "Fair Condition": 2,
+    "Normal Wear": 3,
+    "Good Condition": 4,
+}
+
+
+class StarRatingFlowable(Flowable):
+    """Small vector star row that does not depend on Unicode font support."""
+
+    def __init__(self, count: int) -> None:
+        self.count = max(1, min(int(count), 4))
+        self.star_size = 3.4 * mm
+        self.gap = 1.1 * mm
+        width = self.count * self.star_size + (self.count - 1) * self.gap
+        super().__init__()
+        self.width = width
+        self.height = self.star_size
+
+    def draw(self) -> None:
+        radius = self.star_size / 2
+        inner_radius = radius * 0.43
+        self.canv.setFillColor(STAR_GOLD)
+        self.canv.setStrokeColor(STAR_GOLD)
+        self.canv.setLineWidth(0.35)
+
+        for index in range(self.count):
+            center_x = radius + index * (self.star_size + self.gap)
+            center_y = radius
+            path = self.canv.beginPath()
+            for point_index in range(10):
+                angle = -math.pi / 2 + point_index * math.pi / 5
+                point_radius = radius if point_index % 2 == 0 else inner_radius
+                x = center_x + math.cos(angle) * point_radius
+                y = center_y + math.sin(angle) * point_radius
+                if point_index == 0:
+                    path.moveTo(x, y)
+                else:
+                    path.lineTo(x, y)
+            path.close()
+            self.canv.drawPath(path, fill=1, stroke=1)
 
 
 class InspectionReportService:
@@ -41,7 +92,17 @@ class InspectionReportService:
 
     def build_pdf(self, organization_id: int, inspection_id: int) -> tuple[bytes, str]:
         inspection = self._inspections.get_inspection(organization_id, inspection_id)
-        pdf_bytes = self._render(inspection)
+        public_3d_url = None
+        if inspection.aircraft_model_id:
+            token = self._inspections.ensure_public_share_token(
+                organization_id,
+                inspection_id,
+            )
+            # Refresh after token generation so the ORM instance has the new value.
+            inspection = self._inspections.get_inspection(organization_id, inspection_id)
+            base = settings.public_app_url.rstrip("/")
+            public_3d_url = f"{base}/public/inspection/{token}/3d"
+        pdf_bytes = self._render(inspection, public_3d_url=public_3d_url)
         filename = self._filename(inspection)
         return pdf_bytes, filename
 
@@ -50,7 +111,12 @@ class InspectionReportService:
         safe = "".join(ch for ch in slug if ch.isalnum() or ch in "-_")
         return f"inspection-report-{safe or inspection.id}.pdf"
 
-    def _render(self, inspection: Inspection) -> bytes:
+    def _render(
+        self,
+        inspection: Inspection,
+        *,
+        public_3d_url: str | None = None,
+    ) -> bytes:
         buffer = BytesIO()
         doc = SimpleDocTemplate(
             buffer,
@@ -75,6 +141,8 @@ class InspectionReportService:
         story.extend(self._checklist(inspection, styles))
         story.extend(self._summary(inspection, styles))
         story.extend(self._discrepancies(inspection, styles))
+        if public_3d_url:
+            story.extend(self._public_3d_qr(public_3d_url, styles))
         story.extend(self._signature(inspection, styles))
 
         registration = inspection.registration or f"ID-{inspection.id}"
@@ -190,6 +258,33 @@ class InspectionReportService:
                 fontSize=8,
                 leading=10,
                 textColor=BRAND_NAVY,
+            ),
+            "status_yes": ParagraphStyle(
+                "StatusYes",
+                parent=base["Normal"],
+                fontName="Helvetica-Bold",
+                fontSize=8,
+                leading=10,
+                textColor=STATUS_YES_GREEN,
+                alignment=TA_CENTER,
+            ),
+            "status_no": ParagraphStyle(
+                "StatusNo",
+                parent=base["Normal"],
+                fontName="Helvetica-Bold",
+                fontSize=8,
+                leading=10,
+                textColor=STATUS_NO_RED,
+                alignment=TA_CENTER,
+            ),
+            "status_neutral": ParagraphStyle(
+                "StatusNeutral",
+                parent=base["Normal"],
+                fontName="Helvetica-Bold",
+                fontSize=8,
+                leading=10,
+                textColor=MUTED,
+                alignment=TA_CENTER,
             ),
             "meta_right": ParagraphStyle(
                 "MetaRight",
@@ -373,7 +468,7 @@ class InspectionReportService:
                 data.append(
                     [
                         Paragraph(self._escape(item.item_label or item.item_key), styles["cell"]),
-                        Paragraph(self._escape(self._status_label(item.status)), styles["cell"]),
+                        self._status_paragraph(item.status, styles),
                         Paragraph(self._escape(self._text(item.comments)), styles["cell"]),
                     ]
                 )
@@ -404,7 +499,7 @@ class InspectionReportService:
                 data.append(
                     [
                         Paragraph(self._escape(str(key)), styles["cell"]),
-                        Paragraph(self._escape(self._text(value)), styles["cell"]),
+                        self._section_rating_flowable(value, styles),
                     ]
                 )
             story.append(self._data_table(data, [110 * mm, 55 * mm]))
@@ -446,6 +541,59 @@ class InspectionReportService:
             )
         story.append(self._data_table(data, [12 * mm, 45 * mm, 108 * mm]))
         return story
+
+    def _public_3d_qr(
+        self,
+        public_url: str,
+        styles: dict[str, ParagraphStyle],
+    ) -> list[Any]:
+        qr_widget = qr.QrCodeWidget(public_url)
+        bounds = qr_widget.getBounds()
+        qr_size = 38 * mm
+        width = bounds[2] - bounds[0]
+        height = bounds[3] - bounds[1]
+        drawing = Drawing(qr_size, qr_size, transform=[
+            qr_size / width,
+            0,
+            0,
+            qr_size / height,
+            0,
+            0,
+        ])
+        drawing.add(qr_widget)
+
+        text_block = [
+            Paragraph("View 3D inspection online", styles["subsection"]),
+            Paragraph(
+                "Scan the QR code to open the aircraft 3D model and numbered findings in your browser. "
+                "No login required.",
+                styles["body"],
+            ),
+            Spacer(1, 1.5 * mm),
+            Paragraph(self._escape(public_url), styles["muted"]),
+        ]
+        table = Table(
+            [[drawing, text_block]],
+            colWidths=[42 * mm, 123 * mm],
+        )
+        table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), BRAND_LIGHT),
+                    ("BOX", (0, 0), (-1, -1), 0.6, BRAND_PRIMARY),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                    ("TOPPADDING", (0, 0), (-1, -1), 8),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                ]
+            )
+        )
+        return [
+            Paragraph("3D model share link", styles["section"]),
+            table,
+            Spacer(1, 3 * mm),
+        ]
 
     def _signature(self, inspection: Inspection, styles: dict[str, ParagraphStyle]) -> list[Any]:
         story: list[Any] = [Paragraph("5. Authorization", styles["section"])]
@@ -528,6 +676,32 @@ class InspectionReportService:
         if not status:
             return "—"
         return mapping.get(status.lower(), status)
+
+    def _status_paragraph(
+        self,
+        status: str | None,
+        styles: dict[str, ParagraphStyle],
+    ) -> Paragraph:
+        normalized = status.lower() if status else ""
+        style_name = {
+            "yes": "status_yes",
+            "no": "status_no",
+        }.get(normalized, "status_neutral")
+        return Paragraph(
+            self._escape(self._status_label(status)),
+            styles[style_name],
+        )
+
+    def _section_rating_flowable(
+        self,
+        value: Any,
+        styles: dict[str, ParagraphStyle],
+    ) -> Flowable:
+        label = self._text(value)
+        star_count = SECTION_RATING_STARS.get(label)
+        if star_count:
+            return StarRatingFlowable(star_count)
+        return Paragraph(self._escape(label), styles["cell"])
 
     @staticmethod
     def _text(value: Any) -> str:

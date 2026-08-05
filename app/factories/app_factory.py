@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 def _initialize_database() -> None:
     try:
         import app.infrastructure.persistence.models.aircraft_model  # noqa: F401
+        import app.infrastructure.persistence.models.comment_template  # noqa: F401
         import app.infrastructure.persistence.models.inspection  # noqa: F401
         import app.infrastructure.persistence.models.organization  # noqa: F401
         import app.infrastructure.persistence.models.user  # noqa: F401

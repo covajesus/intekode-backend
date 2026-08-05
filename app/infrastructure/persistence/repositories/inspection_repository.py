@@ -35,6 +35,16 @@ class SqlAlchemyInspectionRepository(IInspectionRepository):
             .first()
         )
 
+    def get_by_public_share_token(self, token: str) -> Inspection | None:
+        if not token:
+            return None
+        return (
+            self._session.query(Inspection)
+            .options(*self._EAGER_LOAD)
+            .filter(Inspection.public_share_token == token)
+            .first()
+        )
+
     def create(self, inspection: Inspection) -> Inspection:
         self._session.add(inspection)
         return inspection

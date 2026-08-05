@@ -1,5 +1,7 @@
 """Inspection application service — business logic for inspection lifecycle."""
 
+import secrets
+
 from app.application.dto.inspection import (
     InspectionCreateDTO,
     InspectionTemplateDTO,
@@ -33,6 +35,32 @@ class InspectionService:
         if not inspection:
             raise NotFoundError("Inspección", inspection_id)
         return inspection
+
+    def get_by_public_share_token(self, token: str) -> Inspection:
+        inspection = self._repository.get_by_public_share_token(token)
+        if not inspection:
+            raise NotFoundError("Enlace público", token)
+        return inspection
+
+    def ensure_public_share_token(
+        self,
+        organization_id: int,
+        inspection_id: int,
+    ) -> str:
+        inspection = self.get_inspection(organization_id, inspection_id)
+        if inspection.public_share_token:
+            return inspection.public_share_token
+
+        for _ in range(5):
+            token = secrets.token_urlsafe(32)
+            if self._repository.get_by_public_share_token(token):
+                continue
+            inspection.public_share_token = token
+            self._repository.commit()
+            self._repository.refresh(inspection)
+            return inspection.public_share_token
+
+        raise RuntimeError("No se pudo generar un token público único")
 
     def create_inspection(
         self,

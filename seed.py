@@ -13,6 +13,7 @@ from app.infrastructure.persistence.repositories.user_repository import SqlAlche
 
 # Register all ORM models before create_all
 import app.infrastructure.persistence.models.aircraft_model  # noqa: F401
+import app.infrastructure.persistence.models.comment_template  # noqa: F401
 import app.infrastructure.persistence.models.inspection  # noqa: F401
 import app.infrastructure.persistence.models.organization  # noqa: F401
 import app.infrastructure.persistence.models.user  # noqa: F401

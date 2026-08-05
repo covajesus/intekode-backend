@@ -43,6 +43,12 @@ class Inspection(Base):
     summary_comments: Mapped[str | None] = mapped_column(Text)
     signed_by: Mapped[str | None] = mapped_column(String(120))
     signed_date: Mapped[date | None] = mapped_column(Date)
+    public_share_token: Mapped[str | None] = mapped_column(
+        String(64),
+        unique=True,
+        index=True,
+        nullable=True,
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
