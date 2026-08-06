@@ -1,9 +1,16 @@
 from datetime import date, datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database.base import Base
+
+if TYPE_CHECKING:
+    from app.infrastructure.persistence.models.aircraft_model import (
+        Model3DAnnotation,
+        PhotoAnnotation,
+    )
 
 
 class Inspection(Base):
@@ -62,6 +69,14 @@ class Inspection(Base):
         back_populates="inspection", cascade="all, delete-orphan"
     )
     discrepancies: Mapped[list["Discrepancy"]] = relationship(
+        back_populates="inspection", cascade="all, delete-orphan"
+    )
+    # Mapped explicitly so deletes cascade through the ORM even on schemas whose
+    # foreign keys were created without ON DELETE CASCADE.
+    photo_annotations: Mapped[list["PhotoAnnotation"]] = relationship(
+        back_populates="inspection", cascade="all, delete-orphan"
+    )
+    model3d_annotations: Mapped[list["Model3DAnnotation"]] = relationship(
         back_populates="inspection", cascade="all, delete-orphan"
     )
 

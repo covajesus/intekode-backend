@@ -1,10 +1,14 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database.base import Base
 from app.resources.checklist_template import DEFAULT_COMPONENTS, DEFAULT_SECTIONS
+
+if TYPE_CHECKING:
+    from app.infrastructure.persistence.models.inspection import Inspection
 
 
 class PhotoAnnotation(Base):
@@ -37,6 +41,7 @@ class PhotoAnnotation(Base):
     )
 
     photo: Mapped["AircraftModelPhoto"] = relationship(back_populates="annotations")
+    inspection: Mapped["Inspection"] = relationship(back_populates="photo_annotations")
 
 
 class AircraftModel(Base):
@@ -141,6 +146,7 @@ class Model3DAnnotation(Base):
     )
 
     aircraft_model: Mapped["AircraftModel"] = relationship(back_populates="model3d_annotations")
+    inspection: Mapped["Inspection"] = relationship(back_populates="model3d_annotations")
     photos: Mapped[list["Model3DAnnotationPhoto"]] = relationship(
         back_populates="annotation",
         cascade="all, delete-orphan",
