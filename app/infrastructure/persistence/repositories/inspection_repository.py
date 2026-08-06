@@ -1,8 +1,14 @@
 """Inspection repository — SQLAlchemy implementation with eager loading."""
 
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.domain.interfaces.repositories import IInspectionRepository
+from app.infrastructure.persistence.models.aircraft_model import (
+    Model3DAnnotation,
+    Model3DAnnotationPhoto,
+    PhotoAnnotation,
+)
 from app.infrastructure.persistence.models.inspection import Inspection
 
 
@@ -11,6 +17,8 @@ class SqlAlchemyInspectionRepository(IInspectionRepository):
         joinedload(Inspection.component_serials),
         joinedload(Inspection.checklist_items),
         joinedload(Inspection.discrepancies),
+        joinedload(Inspection.photo_annotations),
+        joinedload(Inspection.model3d_annotations).joinedload(Model3DAnnotation.photos),
     )
 
     def __init__(self, session: Session) -> None:
@@ -50,6 +58,28 @@ class SqlAlchemyInspectionRepository(IInspectionRepository):
         return inspection
 
     def delete(self, inspection: Inspection) -> None:
+        # Explicit child cleanup so delete works even when DB FKs lack ON DELETE CASCADE
+        # and when ORM cascades conflict across shared parents (aircraft model vs inspection).
+        annotation_ids = list(
+            self._session.scalars(
+                select(Model3DAnnotation.id).where(
+                    Model3DAnnotation.inspection_id == inspection.id
+                )
+            )
+        )
+        if annotation_ids:
+            self._session.execute(
+                delete(Model3DAnnotationPhoto).where(
+                    Model3DAnnotationPhoto.annotation_id.in_(annotation_ids)
+                )
+            )
+            self._session.execute(
+                delete(Model3DAnnotation).where(Model3DAnnotation.id.in_(annotation_ids))
+            )
+
+        self._session.execute(
+            delete(PhotoAnnotation).where(PhotoAnnotation.inspection_id == inspection.id)
+        )
         self._session.delete(inspection)
 
     def commit(self) -> None:

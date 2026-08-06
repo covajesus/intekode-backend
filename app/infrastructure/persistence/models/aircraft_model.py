@@ -83,8 +83,10 @@ class AircraftModel(Base):
     )
     model3d_annotations: Mapped[list["Model3DAnnotation"]] = relationship(
         back_populates="aircraft_model",
-        cascade="all, delete-orphan",
+        # Findings belong to inspections; DB FK CASCADE handles model deletion.
+        # Avoid delete-orphan here — it conflicts with Inspection.model3d_annotations.
         order_by="Model3DAnnotation.id",
+        passive_deletes=True,
     )
 
 
