@@ -37,8 +37,8 @@ BRAND_LIGHT = colors.HexColor("#E8F4FB")
 LIGHT_GRAY = colors.HexColor("#F3F6F9")
 BORDER_GRAY = colors.HexColor("#D0D7DE")
 MUTED = colors.HexColor("#5B6B7C")
-STATUS_YES_GREEN = colors.HexColor("#2E7D32")
-STATUS_NO_RED = colors.HexColor("#C62828")
+STATUS_YES_RED = colors.HexColor("#C62828")
+STATUS_NO_GREEN = colors.HexColor("#2E7D32")
 WHITE = colors.white
 STAR_GOLD = colors.HexColor("#F5A623")
 
@@ -265,7 +265,7 @@ class InspectionReportService:
                 fontName="Helvetica-Bold",
                 fontSize=8,
                 leading=10,
-                textColor=STATUS_YES_GREEN,
+                textColor=STATUS_YES_RED,
                 alignment=TA_CENTER,
             ),
             "status_no": ParagraphStyle(
@@ -274,7 +274,7 @@ class InspectionReportService:
                 fontName="Helvetica-Bold",
                 fontSize=8,
                 leading=10,
-                textColor=STATUS_NO_RED,
+                textColor=STATUS_NO_GREEN,
                 alignment=TA_CENTER,
             ),
             "status_neutral": ParagraphStyle(
