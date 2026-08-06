@@ -31,6 +31,8 @@ from app.application.services.inspection_service import InspectionService
 from app.core.config import settings
 from app.infrastructure.persistence.models.inspection import Inspection
 
+from app.resources.checklist_template import CHAPTER_RATINGS
+
 BRAND_NAVY = colors.HexColor("#0D3D5C")
 BRAND_PRIMARY = colors.HexColor("#1A5F8A")
 BRAND_LIGHT = colors.HexColor("#E8F4FB")
@@ -49,18 +51,22 @@ SECTION_RATING_STARS = {
     "Good Condition": 4,
 }
 
+SECTION_LABELS = {item["key"]: item["label"] for item in CHAPTER_RATINGS}
+
 
 class StarRatingFlowable(Flowable):
     """Small vector star row that does not depend on Unicode font support."""
 
     def __init__(self, count: int) -> None:
+        super().__init__()
         self.count = max(1, min(int(count), 4))
         self.star_size = 3.4 * mm
         self.gap = 1.1 * mm
-        width = self.count * self.star_size + (self.count - 1) * self.gap
-        super().__init__()
-        self.width = width
+        self.width = self.count * self.star_size + (self.count - 1) * self.gap
         self.height = self.star_size
+
+    def wrap(self, availWidth: float, availHeight: float) -> tuple[float, float]:
+        return self.width, self.height
 
     def draw(self) -> None:
         radius = self.star_size / 2
@@ -442,21 +448,32 @@ class InspectionReportService:
         return story
 
     def _checklist(self, inspection: Inspection, styles: dict[str, ParagraphStyle]) -> list[Any]:
-        story: list[Any] = [Paragraph("2. Checklist findings", styles["section"])]
+        section_title = Paragraph("2. Checklist findings", styles["section"])
         items = list(inspection.checklist_items or [])
         if not items:
-            story.append(Paragraph("No checklist items recorded.", styles["muted"]))
-            return story
+            return [
+                KeepTogether(
+                    [
+                        section_title,
+                        Paragraph("No checklist items recorded.", styles["muted"]),
+                    ]
+                )
+            ]
 
         grouped: dict[tuple[str, str], list] = defaultdict(list)
         for item in items:
             grouped[(item.chapter or "", item.section or "")].append(item)
 
-        for (chapter, section), section_items in sorted(
-            grouped.items(), key=lambda pair: (pair[0][0], pair[0][1])
+        story: list[Any] = []
+        for index, ((chapter, section), section_items) in enumerate(
+            sorted(grouped.items(), key=lambda pair: (pair[0][0], pair[0][1]))
         ):
             heading = f"Chapter {chapter} — {section}" if chapter else section
-            block: list[Any] = [Paragraph(self._escape(heading), styles["subsection"])]
+            block: list[Any] = []
+            # Keep section title with the first chapter so it never orphans alone on a page.
+            if index == 0:
+                block.append(section_title)
+            block.append(Paragraph(self._escape(heading), styles["subsection"]))
             data = [
                 [
                     Paragraph("Item", styles["cell_bold"]),
@@ -495,14 +512,17 @@ class InspectionReportService:
                     Paragraph("Rating", styles["cell_bold"]),
                 ]
             ]
-            for key, value in ratings.items():
+            for key, value in self._ordered_section_ratings(ratings):
                 data.append(
                     [
-                        Paragraph(self._escape(str(key)), styles["cell"]),
-                        self._section_rating_flowable(value, styles),
+                        Paragraph(
+                            self._escape(self._section_label(key)),
+                            styles["cell"],
+                        ),
+                        self._section_rating_cell(value, styles),
                     ]
                 )
-            story.append(self._data_table(data, [110 * mm, 55 * mm]))
+            story.append(self._data_table(data, [100 * mm, 65 * mm]))
         else:
             story.append(Paragraph("No section ratings recorded.", styles["muted"]))
 
@@ -697,11 +717,68 @@ class InspectionReportService:
         value: Any,
         styles: dict[str, ParagraphStyle],
     ) -> Flowable:
+        return self._section_rating_cell(value, styles)
+
+    def _section_rating_cell(
+        self,
+        value: Any,
+        styles: dict[str, ParagraphStyle],
+    ) -> Any:
         label = self._text(value)
+        if label in ("—", "N/A"):
+            return Paragraph(self._escape(label), styles["cell"])
+
         star_count = SECTION_RATING_STARS.get(label)
+        if not star_count:
+            # Tolerate minor label casing differences from older data.
+            for known, count in SECTION_RATING_STARS.items():
+                if known.lower() == label.lower():
+                    star_count = count
+                    label = known
+                    break
+
         if star_count:
-            return StarRatingFlowable(star_count)
+            cell = Table(
+                [
+                    [
+                        StarRatingFlowable(star_count),
+                        Paragraph(self._escape(label), styles["cell"]),
+                    ]
+                ],
+                colWidths=[28 * mm, 32 * mm],
+            )
+            cell.setStyle(
+                TableStyle(
+                    [
+                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+                        ("TOPPADDING", (0, 0), (-1, -1), 1),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+                    ]
+                )
+            )
+            return cell
+
         return Paragraph(self._escape(label), styles["cell"])
+
+    @staticmethod
+    def _section_label(key: str) -> str:
+        return SECTION_LABELS.get(str(key), str(key))
+
+    @staticmethod
+    def _ordered_section_ratings(ratings: dict[str, Any]) -> list[tuple[str, Any]]:
+        ordered: list[tuple[str, Any]] = []
+        seen: set[str] = set()
+        for item in CHAPTER_RATINGS:
+            key = item["key"]
+            if key in ratings:
+                ordered.append((key, ratings[key]))
+                seen.add(key)
+        for key, value in ratings.items():
+            if key not in seen:
+                ordered.append((key, value))
+        return ordered
 
     @staticmethod
     def _text(value: Any) -> str:
